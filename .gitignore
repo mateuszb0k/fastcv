@@ -205,3 +205,8 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+/setup.py
+/.vs/WSP/CopilotIndices/17.14.1577.30250
+/.vs/WSP/FileContentIndex
+/.vs/WSP/v17
+/.vs
