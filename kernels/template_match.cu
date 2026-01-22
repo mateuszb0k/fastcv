@@ -1,9 +1,10 @@
+#include <torch/extension.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include "utils.cuh"
-#include <torch/extension.h>
+
 __global__ void templateMatchKernel
 (
 	const float* input,const float* templ,float* output,

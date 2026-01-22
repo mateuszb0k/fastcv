@@ -1,8 +1,9 @@
 //  super subtle change from dilation, start maxPix at 255 and then take the min for each filter range
+#include <torch/extension.h>
 #include <cuda_runtime.h>
 #include <c10/cuda/CUDAException.h>
 #include <ATen/cuda/CUDAContext.h>
-#include <torch/extension.h>
+
 
 
 #include "utils.cuh" 
