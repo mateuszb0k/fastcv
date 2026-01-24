@@ -9,11 +9,17 @@
 #include <cuda_runtime.h>
 #include <stdio.h>
 #include "utils.cuh"
+#include <nvtx3/nvToolsExt.h>
+#include <thrust/reduce.h>
+#include <thrust/execution_policy.h>
+#include <cub/cub.cuh>
 //type aliases 
 //modern cpp requirements
-using DeviceVec = thrust::device_vector<float>;
-using HostVec = thrust::host_vector<float>;
-using UniversalVec = thrust::universal_vector<float>;
+//using DeviceVec = thrust::device_vector<float>;
+//using HostVec = thrust::host_vector<float>;
+//using UniversalVec = thrust::universal_vector<float>;
+// 
+//using KeyValuePair = cub::KeyValuePair<int, float>;
 
 __global__ void templateMatchKernel
 (
@@ -58,7 +64,7 @@ __global__ void templateMatchKernel
 	}
 
 }
-torch::Tensor template_match(torch::Tensor img, torch::Tensor templ) {
+std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	//check if device is cuda and type is byte stolen from sobel.cu
 	TORCH_CHECK(img.device().type() == torch::kCUDA);
 	TORCH_CHECK(img.dtype() == torch::kFloat);
@@ -75,6 +81,8 @@ torch::Tensor template_match(torch::Tensor img, torch::Tensor templ) {
 
 	dim3 dimBlock = getOptimalBlockDim(res_w, res_h);
 	dim3 dimGrid(cdiv(res_w, dimBlock.x), cdiv(res_h, dimBlock.y));
+
+	nvtxRangePushA("Template_Match_Kernel");
 	templateMatchKernel <<< dimGrid, dimBlock, shared_mem_size >>> (
 		img.data_ptr<float>(),
 		templ.data_ptr<float>(),
@@ -83,37 +91,87 @@ torch::Tensor template_match(torch::Tensor img, torch::Tensor templ) {
 		tpl_w, tpl_h
 
 		);
+	nvtxRangePop();
+
 	cudaDeviceSynchronize();
 	float* result_ptr = result.data_ptr<float>();
 	//pair of value and index
-	auto extract_value = [=] __device__(int idx) -> thrust::pair<float, int> {
+	auto extract_value = [=] __host__ __device__(int idx) -> thrust::pair<float, int> {
 		int x = idx % res_w;
 		int y = idx / res_w;
 		int out_idx = (y + pad_y) * img_w + (x + pad_x);
 		return thrust::pair<float, int>(result_ptr[out_idx], out_idx);
 
 	};
+
+
+	// ------------------------ FINDING MINIMUM THRUST WAY-----------------
 	//iterate over all result values
+	nvtxRangePushA("Find_Minimum_thrust");
 	auto value_iter = thrust::make_transform_iterator(
 		thrust::counting_iterator<int>(0),
 		extract_value
 	);
+
 	//find minimum value and its index
 	auto min_result = thrust::reduce(
 		thrust::device,
 		value_iter,
 		value_iter + (res_w * res_h),
 		thrust::pair<float, int>(1e9f, -1),
-		[]__device__(thrust::pair<float, int> a, thrust::pair<float, int>b) {
+		[]__host__ __device__(thrust::pair<float, int> a, thrust::pair<float, int>b) {
 		return (a.first > b.first) ? b : a;
 	}
 	);
+
 	float min_value = min_result.first;
 	int min_index = min_result.second;
 	int min_x = min_index % img_w;
 	int min_y = min_index / img_w;
-	printf("SQ_DIFF min val:%f at (x = %d,y = %d)\n", min_value, min_x, min_y);
+	printf("THRUST SQ_DIFF min val:%f at (x = %d,y = %d)\n", min_value, min_x, min_y);
 
-	return result;
+	nvtxRangePop();
+
+	//-----------------FINDING MINIMUM CUB WAY--------------------
+	nvtxRangePushA("Find_Minimum_CUB");
+	void* d_temp_storage = NULL;
+	size_t temp_storage_bytes = 0;
+	cub::KeyValuePair<int, float>* d_out;
+	cudaMalloc(&d_out, sizeof(cub::KeyValuePair<int, float>));
+	const float* d_in = result.data_ptr<float>();
+
+	cub::DeviceReduce::ArgMin(
+		d_temp_storage,
+		temp_storage_bytes,
+		d_in,
+		d_out,
+		img_w * img_h
+	);
+	//allocating temporary storage
+	cudaMalloc(&d_temp_storage, temp_storage_bytes);
+
+	cub::DeviceReduce::ArgMin(
+		d_temp_storage,
+		temp_storage_bytes,
+		d_in,
+		d_out,
+		img_w * img_h
+	);
+
+	cub::KeyValuePair<int, float> h_out;
+	cudaMemcpy(&h_out, d_out, sizeof(cub::KeyValuePair<int, float>), cudaMemcpyDeviceToHost);
+
+	min_value = h_out.value;
+	min_index = h_out.key;
+	min_x = min_index % img_w;
+	min_y = min_index / img_w;
+	printf("CUB SQ_DIFF min val:%f at (x = %d,y = %d)\n", min_value, min_x, min_y);
+	cudaFree(d_out);
+	cudaFree(d_temp_storage);
+
+	nvtxRangePop();
+
+
+	return std::tuple<int, int>(min_x, min_y);
 
 }

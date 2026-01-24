@@ -1,0 +1,33 @@
+from tempfile import template
+import cv2
+import torch
+import fastcv
+
+img = cv2.imread("artifacts/whiteboard_with_ball.png", cv2.IMREAD_UNCHANGED)
+template = cv2.imread("artifacts/ball.png", cv2.IMREAD_UNCHANGED)
+
+#copy of an image for display
+img_display = img.copy()
+
+
+img = cv2.cvtColor(img, cv2.COLOR_BGRA2GRAY)
+template = cv2.cvtColor(template, cv2.COLOR_BGRA2GRAY)
+
+img_tensor = torch.from_numpy(img).float().cuda()
+template_tensor = torch.from_numpy(template).float().cuda()
+
+#function returns x and y coordinates of the mid of the matched template
+x,y = fastcv.template_match(img_tensor, template_tensor)
+
+
+#template.shape -> height, width, channels
+height, width = template.shape
+cv2.rectangle(img_display, (x - width//2,y - height//2), (x+width//2, y+height//2), (255,0,0), 2)
+cv2.imshow("output", img_display)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+
+#gray_np = gray_tensor.cpu().numpy()
+#cv2.imwrite("output_sobel.jpg", gray_np)
+

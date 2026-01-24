@@ -7,11 +7,11 @@ setup(
         CUDAExtension(
             name="fastcv",
             sources=[
-                "kernels/grayscale.cu",
-                "kernels/box_blur.cu",
-                "kernels/sobel.cu",
-                "kernels/dilation.cu",
-                "kernels/erosion.cu",
+                #"kernels/grayscale.cu",
+                #"kernels/box_blur.cu",
+                #"kernels/sobel.cu",
+                #"kernels/dilation.cu",
+                #"kernels/erosion.cu",
                 "kernels/template_match.cu",
                 "kernels/module.cpp",
             ],
@@ -29,7 +29,8 @@ setup(
                     "-Xcompiler", "/DNOMINMAX",
                     "-D__CUDA_NO_HALF_OPERATORS__",
                     "-D__CUDA_NO_HALF_CONVERSIONS__",
-                    "-D__CUDA_NO_HALF2_OPERATORS__"
+                    "-D__CUDA_NO_HALF2_OPERATORS__",
+                    "--expt-extended-lambda"
                 ]
             },
         ),
@@ -41,7 +42,7 @@ setup(
 # Enter the directory where setup.py is located
 # Paste these commands:
 # set DISTUTILS_USE_SDK=1
-# set CUDA_HOME= "Path where you keep CUDA toolkit e.g. ("C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6")
+# set CUDA_HOME= Path where you keep CUDA toolkit e.g. (C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.6)
 # set USE_NINJA=0
 # set SETUPTOOLS_ENABLE_FEATURES="legacy-editable"
 # And finnaly run:
