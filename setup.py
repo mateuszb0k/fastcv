@@ -20,7 +20,8 @@ setup(
                     "/O2",
                     "/std:c++17",
                     "/permissive-",
-                    "/DNOMINMAX"
+                    "/DNOMINMAX",
+                    "/DWIN32_LEAN_AND_MEAN",
                 ],
                 "nvcc": [
                     "-O2",
@@ -30,8 +31,9 @@ setup(
                     "-D__CUDA_NO_HALF_OPERATORS__",
                     "-D__CUDA_NO_HALF_CONVERSIONS__",
                     "-D__CUDA_NO_HALF2_OPERATORS__",
-                    "--expt-extended-lambda"
-                ]
+                    "--expt-extended-lambda",
+                    "-DWIN32_LEAN_AND_MEAN",
+            ]
             },
         ),
     ],
