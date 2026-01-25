@@ -27,9 +27,4 @@ x,y = fastcv.template_match(img_tensor, template_tensor)
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()
 
-#To run with nsys open powershell, enter folder where this script is located and run:
-# nsys profile -o template_match_report --trace=cuda,nvtx,osrt --force-overwrite true python template_match.py
-
-# gray_np = gray_tensor.cpu().numpy()
-# cv2.imwrite("output_sobel.jpg", gray_np)
 
