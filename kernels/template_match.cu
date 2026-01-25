@@ -74,7 +74,7 @@ __global__ void templateMatchKernel
 
 }
 std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
-	//check if device is cuda and type is byte stolen from sobel.cu
+	//check if device is cuda and type is float
 	TORCH_CHECK(img.device().type() == torch::kCUDA);
 	TORCH_CHECK(img.dtype() == torch::kFloat);
 
@@ -89,7 +89,7 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	int pad_x = tpl_w / 2;
 	int pad_y = tpl_h / 2;
 	auto options = torch::TensorOptions().dtype(torch::kFloat32).device(img.device());
-	auto result = torch::full({ img_h,img_w }, 1000000.0f, options);
+	auto result = torch::full({ img_h,img_w }, 1000000.0f, options); // large initial value for min search
 	size_t shared_mem_size = 4 * tpl_w * tpl_h * sizeof(float); //4 channels
 
 	dim3 dimBlock = getOptimalBlockDim(res_w, res_h);
@@ -122,7 +122,7 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	cudaStreamWaitEvent(thrust_stream, kernel_finished, 0);
 
 
-	//-----------------FINDING MINIMUM CUB WAY--------------------
+	//-----------------FINDING MINIMUM CUB--------------------
 	nvtxRangePushA("Find_Minimum_CUB");
 	void* d_temp_storage = NULL;
 	size_t temp_storage_bytes = 0;
@@ -155,7 +155,7 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	cudaMemcpyAsync(h_out, d_out, sizeof(cub::KeyValuePair<int, float>), cudaMemcpyDeviceToHost, cub_stream);
 	nvtxRangePop();
 
-	// ------------------------ FINDING MINIMUM THRUST WAY-----------------
+	// ------------------------ FINDING MINIMUM THRUST-----------------
 	nvtxRangePushA("Find_Minimum_thrust");
 	float* result_ptr = result.data_ptr<float>();
 	//pair of value and index
@@ -179,7 +179,7 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 		thrust_policy,
 		value_iter,
 		value_iter + (res_w * res_h),
-		thrust::pair<float, int>(1e9f, -1),
+		thrust::pair<float, int>(1e9f, -1),//initial large value 
 		[]__host__ __device__(thrust::pair<float, int> a, thrust::pair<float, int>b) {
 		return (a.first > b.first) ? b : a;
 	}
