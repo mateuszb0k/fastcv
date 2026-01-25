@@ -21,12 +21,14 @@ x,y = fastcv.template_match(img_tensor, template_tensor)
 
 
 #template.shape -> height, width, channels
-height, width, _ = template.shape
-cv2.rectangle(img_display, (x - width//2,y - height//2), (x+width//2, y+height//2), (255,0,0), 2)
-cv2.imshow("output", img_display)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
+# height, width, _ = template.shape
+# cv2.rectangle(img_display, (x - width//2,y - height//2), (x+width//2, y+height//2), (255,0,0), 2)
+# cv2.imshow("output", img_display)
+# cv2.waitKey(0)
+# cv2.destroyAllWindows()
 
+#To run with nsys open powershell, enter folder where this script is located and run:
+# nsys profile -o template_match_report --trace=cuda,nvtx,osrt --force-overwrite true python template_match.py
 
 # gray_np = gray_tensor.cpu().numpy()
 # cv2.imwrite("output_sobel.jpg", gray_np)

@@ -107,8 +107,11 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	torch::Tensor img_flat = img.flatten();
 	torch::Tensor templ_flat = templ.flatten();
 
+
+	cudaStream_t stream;
+	cudaStreamCreate(&stream);
 	nvtxRangePushA("Template_Match_Kernel");
-	templateMatchKernel <<< dimGrid, dimBlock, shared_mem_size >>> (
+	templateMatchKernel <<< dimGrid, dimBlock, shared_mem_size, stream >>> (
 		img_flat.data_ptr<float>(),
 		templ_flat.data_ptr<float>(),
 		result.data_ptr<float>(),
@@ -171,7 +174,8 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 		temp_storage_bytes,
 		d_in,
 		d_out,
-		img_w * img_h
+		img_w * img_h,
+		stream
 	);
 	//allocating temporary storage
 	cudaMalloc(&d_temp_storage, temp_storage_bytes);
@@ -181,21 +185,26 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 		temp_storage_bytes,
 		d_in,
 		d_out,
-		img_w * img_h
+		img_w * img_h,
+		stream
 	);
 
-	cub::KeyValuePair<int, float> h_out;
-	cudaMemcpy(&h_out, d_out, sizeof(cub::KeyValuePair<int, float>), cudaMemcpyDeviceToHost);
+	cub::KeyValuePair<int, float> *h_out;
+	cudaMallocHost(&h_out, sizeof(cub::KeyValuePair<int, float>));
+	cudaMemcpyAsync(h_out, d_out, sizeof(cub::KeyValuePair<int, float>), cudaMemcpyDeviceToHost, stream);
+	cudaStreamSynchronize(stream);
 
-	min_value = h_out.value;
-	min_index = h_out.key;
+	min_value = h_out->value;
+	min_index = h_out->key;
 	min_x = min_index % img_w;
 	min_y = min_index / img_w;
 	printf("CUB SQ_DIFF min val:%f at (x = %d,y = %d)\n", min_value, min_x, min_y);
-	cudaFree(d_out);
-	cudaFree(d_temp_storage);
 
 	nvtxRangePop();
+
+	cudaFree(d_out);
+	cudaFree(d_temp_storage);
+	cudaFreeHost(h_out);
 
 
 	return std::tuple<int, int>(min_x, min_y);
