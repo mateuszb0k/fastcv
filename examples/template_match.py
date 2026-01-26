@@ -1,7 +1,7 @@
 from tempfile import template
 import cv2
 import torch
-import fastcv
+import fastcv 
 
 img = cv2.imread("artifacts/pg.png", cv2.IMREAD_UNCHANGED)
 template = cv2.imread("artifacts/ball.png", cv2.IMREAD_UNCHANGED)

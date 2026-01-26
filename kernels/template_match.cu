@@ -14,6 +14,7 @@
 #include <cub/cub.cuh>
 #include <limits>
 
+
 __global__ void templateMatchKernel
 (
 	const float* __restrict__ input,const float* templ,float* output,

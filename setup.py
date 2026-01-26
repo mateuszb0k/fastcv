@@ -38,7 +38,7 @@ setup(
         ),
     ],
     cmdclass={"build_ext": BuildExtension.with_options(use_ninja=False)},
-)
+) 
 
 # To build the extension open x64 Native Tools Command Prompt for VS 2022
 # Enter the directory where setup.py is located

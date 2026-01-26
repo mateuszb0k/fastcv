@@ -44,7 +44,7 @@ def benchmark_template_match(sizes=[1024, 2048, 4096], runs=50):
     
     return results
 
-
+ 
 if __name__ == "__main__":
     results = benchmark_template_match()
     print("\n=== Final Results ===")
