@@ -76,7 +76,7 @@ __global__ void templateMatchKernel
 
 }
 std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
-	//check if device is cuda and type is byte stolen from sobel.cu
+	//check if device is cuda and type is float
 	TORCH_CHECK(img.device().type() == torch::kCUDA);
 	TORCH_CHECK(img.dtype() == torch::kFloat);
 
