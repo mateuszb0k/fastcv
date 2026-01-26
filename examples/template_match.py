@@ -3,7 +3,7 @@ import cv2
 import torch
 import fastcv
 
-img = cv2.imread("artifacts/whiteboard_with_ball.png", cv2.IMREAD_UNCHANGED)
+img = cv2.imread("artifacts/pg.png", cv2.IMREAD_UNCHANGED)
 template = cv2.imread("artifacts/ball.png", cv2.IMREAD_UNCHANGED)
 
 #copy of an image for display
@@ -23,6 +23,7 @@ x,y = fastcv.template_match(img_tensor, template_tensor)
 #template.shape -> height, width, channels
 # height, width, _ = template.shape
 # cv2.rectangle(img_display, (x - width//2,y - height//2), (x+width//2, y+height//2), (255,0,0), 2)
+# cv2.namedWindow("output", cv2.WINDOW_NORMAL)
 # cv2.imshow("output", img_display)
 # cv2.waitKey(0)
 # cv2.destroyAllWindows()

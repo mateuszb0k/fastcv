@@ -12,6 +12,7 @@
 #include <thrust/reduce.h>
 #include <thrust/execution_policy.h>
 #include <cub/cub.cuh>
+#include <limits>
 
 __global__ void templateMatchKernel
 (
@@ -89,7 +90,7 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	int pad_x = tpl_w / 2;
 	int pad_y = tpl_h / 2;
 	auto options = torch::TensorOptions().dtype(torch::kFloat32).device(img.device());
-	auto result = torch::full({ img_h,img_w }, 1000000.0f, options);
+	auto result = torch::full({ img_h,img_w }, std::numeric_limits<float>::infinity(), options);
 	size_t shared_mem_size = 4 * tpl_w * tpl_h * sizeof(float); //4 channels
 
 	dim3 dimBlock = getOptimalBlockDim(res_w, res_h);
@@ -121,9 +122,7 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	cudaEventRecord(kernel_finished, cub_stream);
 	cudaStreamWaitEvent(thrust_stream, kernel_finished, 0);
 
-
-	//-----------------FINDING MINIMUM CUB WAY--------------------
-	nvtxRangePushA("Find_Minimum_CUB");
+	//----allocating CUB resources----
 	void* d_temp_storage = NULL;
 	size_t temp_storage_bytes = 0;
 	cub::KeyValuePair<int, float>* d_out;
@@ -140,23 +139,11 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	);
 	//allocating temporary storage
 	cudaMalloc(&d_temp_storage, temp_storage_bytes);
-
-	cub::DeviceReduce::ArgMin(
-		d_temp_storage,
-		temp_storage_bytes,
-		d_in,
-		d_out,
-		img_w * img_h,
-		cub_stream
-	);
-
 	cub::KeyValuePair<int, float>* h_out;
 	cudaMallocHost(&h_out, sizeof(cub::KeyValuePair<int, float>));
-	cudaMemcpyAsync(h_out, d_out, sizeof(cub::KeyValuePair<int, float>), cudaMemcpyDeviceToHost, cub_stream);
-	nvtxRangePop();
 
-	// ------------------------ FINDING MINIMUM THRUST WAY-----------------
-	nvtxRangePushA("Find_Minimum_thrust");
+
+	//----allocating THRUST resources----
 	float* result_ptr = result.data_ptr<float>();
 	//pair of value and index
 	auto extract_value = [=] __host__ __device__(int idx) -> thrust::pair<float, int> {
@@ -167,19 +154,35 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 
 	};
 
-	//iterate over all result values
 	auto value_iter = thrust::make_transform_iterator(
 		thrust::counting_iterator<int>(0),
 		extract_value
 	);
 
 	auto thrust_policy = thrust::cuda::par.on(thrust_stream);
+
+
+	//-----------------FINDING MINIMUM CUB WAY--------------------
+	nvtxRangePushA("Find_Minimum_CUB");
+	cub::DeviceReduce::ArgMin(
+		d_temp_storage,
+		temp_storage_bytes,
+		d_in,
+		d_out,
+		img_w * img_h,
+		cub_stream
+	);
+	cudaMemcpyAsync(h_out, d_out, sizeof(cub::KeyValuePair<int, float>), cudaMemcpyDeviceToHost, cub_stream);
+	nvtxRangePop();
+
+	// ------------------------ FINDING MINIMUM THRUST WAY-----------------
+	nvtxRangePushA("Find_Minimum_thrust");
 	//find minimum value and its index
 	auto min_result_thrust = thrust::reduce(
 		thrust_policy,
 		value_iter,
 		value_iter + (res_w * res_h),
-		thrust::pair<float, int>(1e9f, -1),
+		thrust::pair<float, int>(std::numeric_limits<float>::infinity(), -1),
 		[]__host__ __device__(thrust::pair<float, int> a, thrust::pair<float, int>b) {
 		return (a.first > b.first) ? b : a;
 	}
