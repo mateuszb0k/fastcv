@@ -104,10 +104,10 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 
 	cudaStream_t cub_stream, thrust_stream;
 	cudaStreamCreate(&cub_stream);
-	cudaStreamCreate(&thrust_stream);
+	//cudaStreamCreate(&thrust_stream);
 
-	cudaEvent_t kernel_finished;
-	cudaEventCreate(&kernel_finished);
+	//cudaEvent_t kernel_finished;
+	//cudaEventCreate(&kernel_finished);
 
 
 	nvtxRangePushA("Template_Match_Kernel");
@@ -120,8 +120,8 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 		);
 	nvtxRangePop();
 
-	cudaEventRecord(kernel_finished, cub_stream);
-	cudaStreamWaitEvent(thrust_stream, kernel_finished, 0);
+	//cudaEventRecord(kernel_finished, cub_stream);
+	//cudaStreamWaitEvent(thrust_stream, kernel_finished, 0);
 
 	//----allocating CUB resources----
 	void* d_temp_storage = NULL;
@@ -145,22 +145,22 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 
 
 	//----allocating THRUST resources----
-	float* result_ptr = result.data_ptr<float>();
-	//pair of value and index
-	auto extract_value = [=] __host__ __device__(int idx) -> thrust::pair<float, int> {
-		int x = idx % res_w;
-		int y = idx / res_w;
-		int out_idx = (y + pad_y) * img_w + (x + pad_x);
-		return thrust::pair<float, int>(result_ptr[out_idx], out_idx);
+	//float* result_ptr = result.data_ptr<float>();
+	////pair of value and index
+	//auto extract_value = [=] __host__ __device__(int idx) -> thrust::pair<float, int> {
+	//	int x = idx % res_w;
+	//	int y = idx / res_w;
+	//	int out_idx = (y + pad_y) * img_w + (x + pad_x);
+	//	return thrust::pair<float, int>(result_ptr[out_idx], out_idx);
 
-	};
+	//};
 
-	auto value_iter = thrust::make_transform_iterator(
-		thrust::counting_iterator<int>(0),
-		extract_value
-	);
+	//auto value_iter = thrust::make_transform_iterator(
+	//	thrust::counting_iterator<int>(0),
+	//	extract_value
+	//);
 
-	auto thrust_policy = thrust::cuda::par.on(thrust_stream);
+	//auto thrust_policy = thrust::cuda::par.on(thrust_stream);
 
 
 	//-----------------FINDING MINIMUM CUB WAY--------------------
@@ -177,27 +177,27 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	nvtxRangePop();
 
 	// ------------------------ FINDING MINIMUM THRUST WAY-----------------
-	nvtxRangePushA("Find_Minimum_thrust");
-	//find minimum value and its index
-	auto min_result_thrust = thrust::reduce(
-		thrust_policy,
-		value_iter,
-		value_iter + (res_w * res_h),
-		thrust::pair<float, int>(std::numeric_limits<float>::infinity(), -1),
-		[]__host__ __device__(thrust::pair<float, int> a, thrust::pair<float, int>b) {
-		return (a.first > b.first) ? b : a;
-	}
-	);
+	//nvtxRangePushA("Find_Minimum_thrust");
+	////find minimum value and its index
+	//auto min_result_thrust = thrust::reduce(
+	//	thrust_policy,
+	//	value_iter,
+	//	value_iter + (res_w * res_h),
+	//	thrust::pair<float, int>(std::numeric_limits<float>::infinity(), -1),
+	//	[]__host__ __device__(thrust::pair<float, int> a, thrust::pair<float, int>b) {
+	//	return (a.first > b.first) ? b : a;
+	//}
+	//);
 
-	nvtxRangePop();
+	//nvtxRangePop();
 
 	//reading from thrust result
-	cudaStreamSynchronize(thrust_stream);
-	float min_value_thrust = min_result_thrust.first;
-	int min_index_thrust = min_result_thrust.second;
-	int min_x_thrust = min_index_thrust % img_w;
-	int min_y_thrust = min_index_thrust / img_w;
-	printf("THRUST SQ_DIFF min val:%f at (x = %d,y = %d)\n", min_value_thrust, min_x_thrust, min_y_thrust);
+	//cudaStreamSynchronize(thrust_stream);
+	//float min_value_thrust = min_result_thrust.first;
+	//int min_index_thrust = min_result_thrust.second;
+	//int min_x_thrust = min_index_thrust % img_w;
+	//int min_y_thrust = min_index_thrust / img_w;
+	//printf("THRUST SQ_DIFF min val:%f at (x = %d,y = %d)\n", min_value_thrust, min_x_thrust, min_y_thrust);
 
 	//reading from CUB result
 	cudaStreamSynchronize(cub_stream);
@@ -211,8 +211,8 @@ std::tuple<int,int> template_match(torch::Tensor img, torch::Tensor templ) {
 	cudaFree(d_temp_storage);
 	cudaFreeHost(h_out);
 	cudaStreamDestroy(cub_stream);
-	cudaStreamDestroy(thrust_stream);
-	cudaEventDestroy(kernel_finished);
+	//cudaStreamDestroy(thrust_stream);
+	//cudaEventDestroy(kernel_finished);
 
 	return std::tuple<int, int>(min_x_cub, min_y_cub);
 
